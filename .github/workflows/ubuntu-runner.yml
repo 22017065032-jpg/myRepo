@@ -20,6 +20,11 @@ jobs:
           sudo tailscaled &
           sleep 5
           sudo tailscale up --authkey "${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname ubuntu-gh-runner
+          echo "✅ Tailscale started successfully."
+          echo "🔍 Showing Tailscale status:"
+          sudo tailscale status
+          echo "🌐 Your Tailscale IP:"
+          sudo tailscale ip -4
 
       - name: Add SSH key
         run: |
