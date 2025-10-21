@@ -21,10 +21,11 @@ jobs:
           sleep 5
           sudo tailscale up --authkey "${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname ubuntu-gh-runner
           echo "✅ Tailscale started successfully."
-          echo "🔍 Showing Tailscale status:"
-          sudo tailscale status
           echo "🌐 Your Tailscale IP:"
           sudo tailscale ip -4
+          echo ""
+          echo "🔍 Tailscale Status:"
+          sudo tailscale status
 
       - name: Add SSH key
         run: |
@@ -33,6 +34,27 @@ jobs:
           chmod 700 ~/.ssh
           chmod 600 ~/.ssh/authorized_keys
           echo "✅ SSH key added successfully."
+
+      - name: Create SSH user with fixed password
+        run: |
+          FIXED_PASS="MySecureSSH123!"
+          sudo useradd -m -s /bin/bash runnerpass
+          echo "runnerpass:$FIXED_PASS" | sudo chpasswd
+          echo "--------------------------------------------"
+          echo "✅ SSH user created successfully"
+          echo "   Username: runnerpass"
+          echo "   Password: $FIXED_PASS"
+          echo "--------------------------------------------"
+          echo "Use the Tailscale IP above to SSH in:"
+          echo "ssh runnerpass@<Tailscale-IP>"
+          echo "--------------------------------------------"
+
+      - name: Allow password authentication
+        run: |
+          sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
+          sudo systemctl restart ssh
+          echo "✅ Password authentication enabled."
 
       - name: Keep the runner alive
         run: |
