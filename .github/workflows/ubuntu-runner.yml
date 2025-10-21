@@ -1,0 +1,35 @@
+name: Ubuntu Tailscale SSH
+
+on:
+  workflow_dispatch:
+
+jobs:
+  ubuntu-ssh:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Tailscale
+        run: |
+          curl -fsSL https://tailscale.com/install.sh | sh
+
+      - name: Start Tailscale
+        run: |
+          sudo tailscaled &
+          sleep 5
+          sudo tailscale up --authkey "${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname ubuntu-gh-runner
+
+      - name: Add SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PUBKEY }}" >> ~/.ssh/authorized_keys
+          chmod 700 ~/.ssh
+          chmod 600 ~/.ssh/authorized_keys
+          echo "✅ SSH key added successfully."
+
+      - name: Keep the runner alive
+        run: |
+          echo "Ubuntu runner is live! Use Tailscale IP to SSH in."
+          tail -f /dev/null
