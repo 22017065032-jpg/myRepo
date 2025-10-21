@@ -8,7 +8,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Install Tailscale
@@ -17,46 +17,28 @@ jobs:
 
       - name: Start Tailscale
         run: |
-          sudo tailscaled &
+          sudo tailscaled --tun=userspace-networking --socks5-server=localhost:1055 &
           sleep 5
-          sudo tailscale up --authkey "${{ secrets.TAILSCALE_AUTH_KEY }}" --hostname ubuntu-gh-runner
-          echo "✅ Tailscale started successfully."
-          echo "🌐 Your Tailscale IP:"
-          sudo tailscale ip -4
-          echo ""
-          echo "🔍 Tailscale Status:"
-          sudo tailscale status
+          sudo tailscale up --authkey "${{ secrets.TAILSCALE_AUTH_KEY }}" \
+            --hostname ubuntu-gh-runner --ssh
+          echo "✅ Tailscale started."
+          sudo tailscale ip -4 | tee ts-ip.txt
 
-      - name: Add SSH key
+      - name: Create SSH user with password
         run: |
-          mkdir -p ~/.ssh
-          echo "${{ secrets.SSH_PUBKEY }}" >> ~/.ssh/authorized_keys
-          chmod 700 ~/.ssh
-          chmod 600 ~/.ssh/authorized_keys
-          echo "✅ SSH key added successfully."
+          sudo useradd -m runnerpass
+          echo 'runnerpass:MySecureSSH123!' | sudo chpasswd
+          echo 'runnerpass ALL=(ALL) NOPASSWD:ALL' | sudo tee /etc/sudoers.d/runnerpass
+          sudo systemctl enable --now ssh
+          echo "✅ User created. Username: runnerpass | Password: MySecureSSH123!"
 
-      - name: Create SSH user with fixed password
+      - name: Show connection info
         run: |
-          FIXED_PASS="MySecureSSH123!"
-          sudo useradd -m -s /bin/bash runnerpass
-          echo "runnerpass:$FIXED_PASS" | sudo chpasswd
-          echo "--------------------------------------------"
-          echo "✅ SSH user created successfully"
-          echo "   Username: runnerpass"
-          echo "   Password: $FIXED_PASS"
-          echo "--------------------------------------------"
-          echo "Use the Tailscale IP above to SSH in:"
-          echo "ssh runnerpass@<Tailscale-IP>"
-          echo "--------------------------------------------"
+          echo "=================================================="
+          echo "SSH READY!"
+          echo "ssh runnerpass@$(sudo tailscale ip -4)"
+          echo "Password: MySecureSSH123!"
+          echo "=================================================="
 
-      - name: Allow password authentication
-        run: |
-          sudo sed -i 's/^#*PasswordAuthentication.*/PasswordAuthentication yes/' /etc/ssh/sshd_config
-          sudo sed -i 's/^#*PermitRootLogin.*/PermitRootLogin yes/' /etc/ssh/sshd_config
-          sudo systemctl restart ssh
-          echo "✅ Password authentication enabled."
-
-      - name: Keep the runner alive
-        run: |
-          echo "Ubuntu runner is live! Use Tailscale IP to SSH in."
-          tail -f /dev/null
+      - name: Keep alive
+        run: tail -f /dev/null
